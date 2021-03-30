@@ -25,9 +25,6 @@ const MONTH_IN_SECONDS = 2592000;
 
 const AGE_IN_MONTHS = parseInt(process.env.AGE_IN_MONTHS, 10) || 3;
 
-// PR age
-const PR_MAX_AGE = AGE_IN_MONTHS * MONTH_IN_SECONDS;
-
 // maximum number of processed PRs
 const MAX_COUNT = parseInt(process.env.MAX_COUNT, 10) || 100;
 
@@ -83,7 +80,7 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
 
     let mergedPRs = [];
 
-    for (;;) {
+    for (; ;) {
       console.log(`Page ${config.page}, getting closed PRs...`);
 
       const pulls = await github.rest.pulls.list(config);
@@ -99,15 +96,23 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
         // TODO compare dates here to get only stale merged PRs
         .filter(pr => !!pr.merged_at && !BLACKLISTED_REFS.includes(pr.head.ref))
         .map(pr => {
+          // compare the diff in seconds
+          // merged_at is actually a UTC date string but I don't think we care about those few hours in this case
+          const age = (Date.now() - Date.parse(pr.merged_at)) / 1000;
+          // calculate pr's age in months
+          const monthsAge = age / MONTH_IN_SECONDS;
+
           return {
             state: pr.state,
             number: pr.number,
             title: pr.title,
+            age: monthsAge,
             html_url: pr.html_url,
             branch_name: pr.head.ref,
             merged_at: pr.merged_at,
           }
-        });
+        })
+        .filter(pr => pr.age >= AGE_IN_MONTHS);
 
       mergedPRs = mergedPRs.concat(pullRequests);
 
@@ -152,9 +157,7 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
       console.log('Going to wipe out ALL your branches hehe.. kidding just logging ;)');
       for (const mergedPR of mergedPRs) {
         console.log(`Attempting to remove ${mergedPR.branch_name}`);
-        const age = Math.floor((Date.now() - Date.parse(mergedPR.merged_at)) / 1000);
-        const monthsAge = Math.floor(Date.parse(mergedPR.merged_at) / 1000 / PR_MAX_AGE);
-        console.log(`This PR (#${mergedPR.number}) is ${monthsAge} months old and is ${age > PR_MAX_AGE ? 'stale' : 'still fresh'}.`)
+        console.log(`This PR (#${mergedPR.number}) is ${mergedPR.age.toPrecision(4)} months old and is ${mergedPR.age > AGE_IN_MONTHS ? 'stale' : 'still fresh'}.`)
       }
       rl.close();
     }
