@@ -21,7 +21,7 @@ const github = new Octokit({
 const FORBIDDEN_HEAD_REFS = ['master', 'staging'];
 
 // Only process those PR that are opened against master branch (see Kar's message)
-const ALLOWED_BASE_REFS = ['master'];
+const ALLOWED_BASE_REFS = new Set(['master']);
 
 // 30 days in seconds
 const MONTH_IN_SECONDS = 2592000;
@@ -39,7 +39,7 @@ console.table({
   'GitHub repo owner (organization or username)': process.env.OWNER,
   'GitHub repo name': process.env.REPO,
   'Forbidden head branch names': FORBIDDEN_HEAD_REFS.toString(),
-  'Allowed base branch names': ALLOWED_BASE_REFS.toString(),
+  'Allowed base branch names': [...ALLOWED_BASE_REFS].toString(),
   'Max number of merged PRs to be processed overall': MAX_COUNT,
   'HTTP request PR count per page': PER_PAGE_COUNT,
   'Stale PR age in months': AGE_IN_MONTHS,
@@ -108,7 +108,7 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
       let pullRequests = await Promise.all(pulls.data
         // get only merged branches which are not included in our blacklist
         // TODO compare dates here to get only stale merged PRs
-        .filter(pr => !!pr.merged_at && !FORBIDDEN_HEAD_REFS.includes(pr.head.ref) && ALLOWED_BASE_REFS.includes(pr.base.ref))
+        .filter(pr => !!pr.merged_at && !FORBIDDEN_HEAD_REFS.includes(pr.head.ref) && ALLOWED_BASE_REFS.has(pr.base.ref))
         .map(async pr => {
           try {
             const { data: branchInfo } = await github.rest.repos.getBranch({
@@ -155,6 +155,9 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
           }
         })
         .filter(pr => pr.age >= AGE_IN_MONTHS);
+
+      // since this PR (opened against master) is merged it is safe to add head branch to allowed base branches
+      pullRequests.forEach(({ branch_name }) => ALLOWED_BASE_REFS.add(branch_name));
 
       mergedPRs = mergedPRs.concat(pullRequests);
 
