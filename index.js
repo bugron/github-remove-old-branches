@@ -175,7 +175,7 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
           try {
             await github.rest.git.deleteRef({
               ...baseConfig,
-              ref: margedPR.branch_name,
+              ref: mergedPR.branch_name,
             });
             console.log('Done');
           } catch (e) {
@@ -188,7 +188,7 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
       console.log('Going to wipe out ALL your branches hehe.. kidding just logging ;)');
       for (const mergedPR of mergedPRs) {
         console.log(`Attempting to remove ${mergedPR.branch_name}`);
-        console.log(`This PR (#${mergedPR.number}) is ${mergedPR.age.toPrecision(4)} months old and is ${mergedPR.age > AGE_IN_MONTHS ? 'stale' : 'still fresh'}.`)
+        console.log(`This PR (#${mergedPR.number}) is ${mergedPR.age.toPrecision(4)} months old`)
       }
       rl.close();
     }
