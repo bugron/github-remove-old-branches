@@ -26,13 +26,24 @@ const ALLOWED_BASE_REFS = ['master'];
 // 30 days in seconds
 const MONTH_IN_SECONDS = 2592000;
 
-const AGE_IN_MONTHS = parseFloat(process.env.AGE_IN_MONTHS, 10) || 3;
+const AGE_IN_MONTHS = parseFloat(process.env.AGE_IN_MONTHS) || 3;
 
 // maximum number of processed PRs
-const MAX_COUNT = parseInt(process.env.MAX_COUNT, 10) || 100;
+const MAX_COUNT = parseFloat(process.env.MAX_COUNT) || 100;
 
 // number of PRs to fetch per page
-const PER_PAGE_COUNT = parseInt(process.env.PER_PAGE_COUNT, 10) || 30;
+const PER_PAGE_COUNT = parseFloat(process.env.PER_PAGE_COUNT) || 30;
+
+console.log('Configuration values (make sure they are correct before proceeding):');
+console.table({
+  'GitHub repo owner (organization or username)': process.env.OWNER,
+  'GitHub repo name': process.env.REPO,
+  'Forbidden head branch names': FORBIDDEN_HEAD_REFS.toString(),
+  'Allowed base branch names': ALLOWED_BASE_REFS.toString(),
+  'Max number of merged PRs to be processed overall': MAX_COUNT,
+  'HTTP request PR count per page': PER_PAGE_COUNT,
+  'Stale PR age in months': AGE_IN_MONTHS,
+})
 
 const rl = readline.createInterface({
   input: process.stdin,
