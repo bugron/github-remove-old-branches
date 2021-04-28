@@ -26,7 +26,7 @@ const ALLOWED_BASE_REFS = ['master'];
 // 30 days in seconds
 const MONTH_IN_SECONDS = 2592000;
 
-const AGE_IN_MONTHS = parseInt(process.env.AGE_IN_MONTHS, 10) || 3;
+const AGE_IN_MONTHS = parseFloat(process.env.AGE_IN_MONTHS, 10) || 3;
 
 // maximum number of processed PRs
 const MAX_COUNT = parseInt(process.env.MAX_COUNT, 10) || 100;
