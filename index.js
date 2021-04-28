@@ -16,9 +16,12 @@ const github = new Octokit({
   auth: process.env.GITHUB_TOKEN
 });
 
-// IMPROTANT: all forbidden branch names go here!!!
+// IMPORTANT: all forbidden branch names go here!!!
 // so do not delete them accidentally
-const BLACKLISTED_REFS = ['master', 'staging'];
+const FORBIDDEN_HEAD_REFS = ['master', 'staging'];
+
+// Only process those PR that are opened against master branch (see Kar's message)
+const ALLOWED_BASE_REFS = ['master'];
 
 // 30 days in seconds
 const MONTH_IN_SECONDS = 2592000;
@@ -91,10 +94,37 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
         break;
       }
 
-      const pullRequests = pulls.data
+      let pullRequests = await Promise.all(pulls.data
         // get only merged branches which are not included in our blacklist
         // TODO compare dates here to get only stale merged PRs
-        .filter(pr => !!pr.merged_at && !BLACKLISTED_REFS.includes(pr.head.ref))
+        .filter(pr => !!pr.merged_at && !FORBIDDEN_HEAD_REFS.includes(pr.head.ref) && ALLOWED_BASE_REFS.includes(pr.base.ref))
+        .map(async pr => {
+          try {
+            const { data: branchInfo } = await github.rest.repos.getBranch({
+              ...baseConfig,
+              branch: pr.head.ref
+            });
+
+            return {
+              ...pr,
+              branchInfo,
+            }
+          } catch {
+            return {
+              ...pr,
+              branchInfo: { message: 'Branch not found' },
+            }
+          }
+        }));
+
+      pullRequests = pullRequests
+        .filter(({ branchInfo }) => {
+          if (!branchInfo || branchInfo.message === 'Branch not found') {
+            console.log('Branch not found');
+            return false;
+          }
+          return true;
+        })
         .map(pr => {
           // compare the diff in seconds
           // merged_at is actually a UTC date string but I don't think we care about those few hours in this case
@@ -109,6 +139,7 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
             age: monthsAge,
             html_url: pr.html_url,
             branch_name: pr.head.ref,
+            base_branch_name: pr.base.ref,
             merged_at: pr.merged_at,
           }
         })
@@ -116,7 +147,7 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
 
       mergedPRs = mergedPRs.concat(pullRequests);
 
-      if (mergedPRs >= MAX_COUNT) {
+      if (mergedPRs.length >= MAX_COUNT) {
         console.log(`Maximum allowed amount (${MAX_COUNT}) of PRs is reached`)
         break;
       }
@@ -148,7 +179,7 @@ rl.question('Type DRYRUN (default) or NUKE to select a mode. DRYRUN does nothing
             });
             console.log('Done');
           } catch (e) {
-            console.log(`An error occued while deleting ${mergedPR.html_url} head branch: ${mergedPR.branch_name}`);
+            console.log(`An error occurred while deleting ${mergedPR.html_url} head branch: ${mergedPR.branch_name}`);
           }
         }
         rl.close();
